@@ -33,7 +33,7 @@ def post_process_hapt_dataset(output_path: Path = Path('../data/transitions/bala
 
     os.makedirs(output_path, exist_ok=True)
     train_data.to_csv(output_path / 'train.csv', index=False)
-    val_data.to_csv(output_path / 'val.csv', index=False)
+    val_data.to_csv(output_path / 'validation.csv', index=False)
     test_data.to_csv(output_path / 'test.csv', index=False)
     return
 
