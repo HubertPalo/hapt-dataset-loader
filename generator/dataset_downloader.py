@@ -14,7 +14,7 @@ def unzip_hapt_dataset(file_name= 'UCI-HAPT.zip'):
         zip_ref.extractall('../data/original/UCI')
 
 def __main__():
-    # download_hapt_dataset()
+    download_hapt_dataset()
     unzip_hapt_dataset()
 
 if __name__ == '__main__':
