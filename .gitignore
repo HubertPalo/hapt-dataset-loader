@@ -1,3 +1,5 @@
+data/
+generator/UCI-HAPT.zip
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
