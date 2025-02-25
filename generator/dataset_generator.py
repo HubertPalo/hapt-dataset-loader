@@ -85,6 +85,8 @@ authentications_datasets: List[str] = [
     "RecodGait_v2",
     "GaitOpticalInertial",
 ]
+# override default values
+authentications_datasets: List[str] = ['RecodGait_v1', 'RecodGait_v2']
 
 fall_datasets: List[str] = ["UMAFall"]
 
@@ -974,7 +976,7 @@ dataset_path: Dict[str, str] = {
     "UCI": "UCI/RawData",
     "RealWorld": "RealWorld/realworld2016_dataset",
     "RecodGait_v1": "RecodGait_v1/RecodGait_v1/device_coordinates",
-    "RecodGait_v2": "RecodGait/RecodGait v2/raw_data",
+    "RecodGait_v2": "RecodGait_v2/RecodGait v2/raw_data",
     "GaitOpticalInertial": "GaitOpticalInertial/A multi-sensor human gait dataset/raw_data",
     "UMAFall": "UMAFall/UMAFall_Dataset",
     "HAPT": "UCI/RawData",
