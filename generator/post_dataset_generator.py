@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 from typing import Callable
 import re
+import shutil
 
 
 def post_process_hapt_dataset(
@@ -113,14 +114,18 @@ def __main__():
     # General input path
     input_path = Path('../data/transitions/unbalanced/HAPT/standartized_unbalanced.csv')
     # First post-processing: balanced classes per user - for DOWNSTREAM task
-    output_path = Path('../data/transitions/processed/classes_balanced_per_user')
+    output_path = Path('../data/transitions/processed/HAPT_daghar_like')
     balance_function = BalanceToMinimumClassAndUser()
     post_process_hapt_dataset(input_path, output_path, balance_function)
     # Second post-processing: unbalanced classes per user - for PRETRAIN task
-    output_path = Path('../data/transitions/processed/classes_unbalanced_per_user')
+    output_path = Path('../data/transitions/processed/temporal')
     post_process_hapt_dataset(input_path, output_path, None)
     # Second post-processing: generating the final dataset
-    create_dataset(output_path, Path('../data/transitions/processed/folds_per_user'))
+    create_dataset(output_path, Path('../data/transitions/processed/HAPT_concatenated_in_user_files'))
+
+    # Removing the temporary files
+    shutil.rmtree(output_path)
+    shutil.rmtree(Path('../data/transitions/processed/HAPT_concatenated_in_user_files/test'))
     
 if __name__ == '__main__':
     __main__()
