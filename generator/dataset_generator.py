@@ -86,7 +86,7 @@ authentications_datasets: List[str] = [
     "GaitOpticalInertial",
 ]
 # override default values
-authentications_datasets: List[str] = ['RecodGait_v1', 'RecodGait_v2']
+authentications_datasets: List[str] = ['RecodGait_v2']
 
 fall_datasets: List[str] = ["UMAFall"]
 
@@ -1658,64 +1658,64 @@ def generate_cpc_view(cpc_dataset, dataset):
 #             cpc_dataset = cpc_dataset[cpc_dataset["standard activity code"] != -1].copy()
 #             generate_cpc_view(cpc_dataset, dataset)
 
-# ############################################################################################################################
-# # Creating the datasets views fot the authentication task
-# ############################################################################################################################
-# for dataset in authentications_datasets:
-#     # Verify if the dataset is already created
-#     if os.path.isdir(output_path_unbalanced_authentications / dataset):
-#         print(f"The dataset {dataset} already was created.\n")
+############################################################################################################################
+# Creating the datasets views fot the authentication task
+############################################################################################################################
+for dataset in authentications_datasets:
+    # Verify if the dataset is already created
+    if os.path.isdir(output_path_unbalanced_authentications / dataset):
+        print(f"The dataset {dataset} already was created.\n")
 
-#     else:
-#         print(f"Preprocessing the {dataset} dataset ...\n")
+    else:
+        print(f"Preprocessing the {dataset} dataset ...\n")
 
-#         reader = functions[dataset]
+        reader = functions[dataset]
 
-#         # Read the raw dataset
-#         path = Path(f"../data/original/{dataset_path[dataset]}")
-#         raw_dataset = reader(path)
+        # Read the raw dataset
+        path = Path(f"../data/original/{dataset_path[dataset]}")
+        raw_dataset = reader(path)
 
-#         # Preprocess the initial dataset
-#         path = Path(f"../data/authentication")
-#         os.mkdir(path) if not os.path.isdir(path) else None
-#         path = Path(f"../data/authentication/initial_dataset")
-#         os.mkdir(path) if not os.path.isdir(path) else None
-#         path = Path(f"../data/authentication/initial_dataset/{dataset}")
-#         os.mkdir(path) if not os.path.isdir(path) else None
+        # Preprocess the initial dataset
+        path = Path(f"../data/authentication")
+        os.mkdir(path) if not os.path.isdir(path) else None
+        path = Path(f"../data/authentication/initial_dataset")
+        os.mkdir(path) if not os.path.isdir(path) else None
+        path = Path(f"../data/authentication/initial_dataset/{dataset}")
+        os.mkdir(path) if not os.path.isdir(path) else None
 
-#         new_df_initial = pipelines[dataset]["initial_dataset"](raw_dataset)
-#         print(f"Generating the initial dataset views for {dataset} ...\n")
-#         generate_authentication_initial_view(new_df_initial, path)
+        new_df_initial = pipelines[dataset]["initial_dataset"](raw_dataset)
+        print(f"Generating the initial dataset views for {dataset} ...\n")
+        generate_authentication_initial_view(new_df_initial, path)
 
-#         # Create folders to save the unbalanced dataset
-#         os.mkdir(output_path_unbalanced_authentications) if not os.path.isdir(output_path_unbalanced_authentications) else None
-#         os.mkdir(output_path_unbalanced_authentications / dataset) if not os.path.isdir(output_path_unbalanced_authentications / dataset) else None
+        # Create folders to save the unbalanced dataset
+        os.mkdir(output_path_unbalanced_authentications) if not os.path.isdir(output_path_unbalanced_authentications) else None
+        os.mkdir(output_path_unbalanced_authentications / dataset) if not os.path.isdir(output_path_unbalanced_authentications / dataset) else None
 
-#         # Create folders to save the balanced dataset
-#         os.mkdir(output_path_balanced_authentications) if not os.path.isdir(output_path_balanced_authentications) else None
-#         os.mkdir(output_path_balanced_authentications / dataset) if not os.path.isdir(output_path_balanced_authentications / dataset) else None
-#         os.mkdir(output_path_balanced_standartized_authentications) if not os.path.isdir(output_path_balanced_standartized_authentications) else None
-#         os.mkdir(output_path_balanced_standartized_authentications / dataset) if not os.path.isdir(output_path_balanced_standartized_authentications / dataset) else None
+        # Create folders to save the balanced dataset
+        os.mkdir(output_path_balanced_authentications) if not os.path.isdir(output_path_balanced_authentications) else None
+        os.mkdir(output_path_balanced_authentications / dataset) if not os.path.isdir(output_path_balanced_authentications / dataset) else None
+        os.mkdir(output_path_balanced_standartized_authentications) if not os.path.isdir(output_path_balanced_standartized_authentications) else None
+        os.mkdir(output_path_balanced_standartized_authentications / dataset) if not os.path.isdir(output_path_balanced_standartized_authentications / dataset) else None
 
-#         # Preprocess the raw dataset
-#         new_df = pipelines[dataset]["raw_dataset"](raw_dataset)
-#         new_df.to_csv(
-#             output_path_unbalanced_authentications / dataset / "raw_unbalanced.csv",
-#             index=False,
-#         )
+        # Preprocess the raw dataset
+        new_df = pipelines[dataset]["raw_dataset"](raw_dataset)
+        new_df.to_csv(
+            output_path_unbalanced_authentications / dataset / "raw_unbalanced.csv",
+            index=False,
+        )
 
-#         # Preprocess the standartized dataset
-#         new_df_standartized = pipelines[dataset]["standartized_dataset"](raw_dataset)
-#         new_df_standartized.to_csv(
-#             output_path_unbalanced_authentications
-#             / dataset
-#             / "standartized_unbalanced.csv",
-#             index=False,
-#         )
+        # Preprocess the standartized dataset
+        new_df_standartized = pipelines[dataset]["standartized_dataset"](raw_dataset)
+        new_df_standartized.to_csv(
+            output_path_unbalanced_authentications
+            / dataset
+            / "standartized_unbalanced.csv",
+            index=False,
+        )
 
-#         # Generate the balanced dataset
-#         output_dir = Path("../data/authentication")
-#         generate_authentication_views(new_df, new_df_standartized, dataset, output_dir)
+        # Generate the balanced dataset
+        output_dir = Path("../data/authentication")
+        generate_authentication_views(new_df, new_df_standartized, dataset, output_dir)
 
 # # Creating the datasets views fot the fall task
 # for dataset in fall_datasets:
