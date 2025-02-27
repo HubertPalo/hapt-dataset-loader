@@ -1683,9 +1683,9 @@ for dataset in authentications_datasets:
         path = Path(f"../data/authentication/initial_dataset/{dataset}")
         os.mkdir(path) if not os.path.isdir(path) else None
 
-        new_df_initial = pipelines[dataset]["initial_dataset"](raw_dataset)
-        print(f"Generating the initial dataset views for {dataset} ...\n")
-        generate_authentication_initial_view(new_df_initial, path)
+        # new_df_initial = pipelines[dataset]["initial_dataset"](raw_dataset)
+        # print(f"Generating the initial dataset views for {dataset} ...\n")
+        # generate_authentication_initial_view(new_df_initial, path)
 
         # Create folders to save the unbalanced dataset
         os.mkdir(output_path_unbalanced_authentications) if not os.path.isdir(output_path_unbalanced_authentications) else None
@@ -1697,12 +1697,12 @@ for dataset in authentications_datasets:
         os.mkdir(output_path_balanced_standartized_authentications) if not os.path.isdir(output_path_balanced_standartized_authentications) else None
         os.mkdir(output_path_balanced_standartized_authentications / dataset) if not os.path.isdir(output_path_balanced_standartized_authentications / dataset) else None
 
-        # Preprocess the raw dataset
-        new_df = pipelines[dataset]["raw_dataset"](raw_dataset)
-        new_df.to_csv(
-            output_path_unbalanced_authentications / dataset / "raw_unbalanced.csv",
-            index=False,
-        )
+        # # Preprocess the raw dataset
+        # new_df = pipelines[dataset]["raw_dataset"](raw_dataset)
+        # new_df.to_csv(
+        #     output_path_unbalanced_authentications / dataset / "raw_unbalanced.csv",
+        #     index=False,
+        # )
 
         # Preprocess the standartized dataset
         new_df_standartized = pipelines[dataset]["standartized_dataset"](raw_dataset)
@@ -1713,9 +1713,9 @@ for dataset in authentications_datasets:
             index=False,
         )
 
-        # Generate the balanced dataset
-        output_dir = Path("../data/authentication")
-        generate_authentication_views(new_df, new_df_standartized, dataset, output_dir)
+        # # Generate the balanced dataset
+        # output_dir = Path("../data/authentication")
+        # generate_authentication_views(new_df, new_df_standartized, dataset, output_dir)
 
 # # Creating the datasets views fot the fall task
 # for dataset in fall_datasets:
