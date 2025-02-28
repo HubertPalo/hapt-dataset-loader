@@ -7,6 +7,7 @@ import re
 import shutil
 from tqdm import tqdm
 from itertools import product
+import random
 
 
 def post_process_hapt_dataset(
@@ -43,14 +44,86 @@ def post_process_hapt_dataset(
     val_data = balanced_train_data_per_user_and_class[balanced_train_data_per_user_and_class['user'].isin(users_in_val_ids)]
     test_data = balanced_test_data_per_user_and_class
 
-    os.makedirs(output_path, exist_ok=True)
     train_data.to_csv(output_path / 'train.csv', index=False)
     val_data.to_csv(output_path / 'validation.csv', index=False)
     test_data.to_csv(output_path / 'test.csv', index=False)
-    return
 
 
-def post_process_recodgait_dataset(input_path: Path, output_path: Path):
+# For RECODGAIT dataset
+def generate_pairs_from_rg_partition(partition: str, data_dict: dict, positive_pairs_per_user: int=500):
+    negative_pairs_per_user = positive_pairs_per_user * 5
+    pairs = []
+    partition_data_dict = data_dict[partition]
+    users_ids = list(partition_data_dict.keys())
+    for user_id in users_ids:
+        unique_session_ids = list(partition_data_dict[user_id].keys())
+        # Positive pairs
+        for _ in range(positive_pairs_per_user):
+            random_session_id_1, random_session_id_2 = random.sample(unique_session_ids, k=2)
+            user_sample_index_1 = random.choice(partition_data_dict[user_id][random_session_id_1])
+            user_sample_index_2 = random.choice(partition_data_dict[user_id][random_session_id_2])
+            # Append the pair
+            pairs.append({
+                'sample-1-user-id': user_id,
+                'sample-2-user-id': user_id,
+                'sample-1-session-id': random_session_id_1,
+                'sample-2-session-id': random_session_id_2,
+                'sample-1-index': user_sample_index_1,
+                'sample-2-index': user_sample_index_2,
+                'label': 1
+            })
+        # Negative pairs
+        other_users_ids = [other_user_id for other_user_id in users_ids if user_id != other_user_id]
+        # print(f'User {user_id} - USERS {users_ids} - IMPOSTORS: {other_users_ids}')
+        for _ in range(negative_pairs_per_user):
+            # Original user sample selection
+            user_session_id = 1 if partition == 'test' else random.choice(unique_session_ids)
+            user_sample_index = random.choice(partition_data_dict[user_id][user_session_id])
+            # Impostor user sample selection
+            random_impostor_user_id = random.choice(list(other_users_ids))
+            random_impostor_session_ids = list(partition_data_dict[random_impostor_user_id].keys())
+            random_impostor_session_id = 3 if partition == 'test' else random.choice(random_impostor_session_ids)
+            random_impostor_sample_index = random.choice(partition_data_dict[random_impostor_user_id][random_impostor_session_id])
+            # Append the pair
+            pairs.append({
+                'sample-1-user-id': user_id,
+                'sample-2-user-id': random_impostor_user_id,
+                'sample-1-session-id': user_session_id,
+                'sample-2-session-id': random_impostor_session_id,
+                'sample-1-index': user_sample_index,
+                'sample-2-index': random_impostor_sample_index,
+                'label': 0
+            })
+    return pd.DataFrame(pairs)
+
+
+# Mix the data based on defined pairs
+def mix_data_according_to_pairs(pairs_data: pd.DataFrame, samples_data: pd.DataFrame, output_path: Path):
+    sample1_indexes = pairs_data['sample-1-index'].tolist()
+    sample2_indexes = pairs_data['sample-2-index'].tolist()
+    
+    preffixes = ['accel-x', 'accel-y', 'accel-z']
+
+    filter_columns = [f'{preffix}-{i}' for preffix, i in product(preffixes, range(60))]
+    additional_columns = ['user', 'session']
+    
+    filter_columns = filter_columns + additional_columns
+
+    sample1_data = samples_data.iloc[sample1_indexes][filter_columns]
+    sample2_data = samples_data.iloc[sample2_indexes][filter_columns]
+
+    # Rename columns
+    sample1_data.columns = [f'sample-1-{col}' for col in sample1_data.columns]
+    sample2_data.columns = [f'sample-2-{col}' for col in sample2_data.columns]
+    # Reset the indexes
+    sample1_data.reset_index(drop=True, inplace=True)
+    sample2_data.reset_index(drop=True, inplace=True)
+    # Concatenate the data
+    final_data = pd.concat([sample1_data, sample2_data, pairs_data], axis=1)
+    final_data.to_csv(output_path, index=False)
+
+
+def post_process_recodgait_dataset_daghar_like(input_path: Path, output_path: Path):
     # Read the input file
     data = pd.read_csv(input_path)
     # Preprocess the data
@@ -59,62 +132,60 @@ def post_process_recodgait_dataset(input_path: Path, output_path: Path):
     # Group by user and create a column for every unique sessions
     data_sessions = data.groupby(['user', 'session']).size().unstack(fill_value=0)
     data_sessions['S-count'] = data_sessions.apply(lambda row: 5 - row.value_counts().get(0, 0), axis=1)
-    # Separate the data in train, validation and test
+    # Separate the data in train, validation and test to identify the respective user ids
     train_user_ids = data_sessions[data_sessions['S-count'].isin([3,5])].index
     val_user_ids = data_sessions[data_sessions['S-count'] == 4].index
     test_user_ids = data_sessions[data_sessions['S-count'] == 2].index
-    train_df = data[data['user'].isin(train_user_ids)]
-    val_df = data[data['user'].isin(val_user_ids)]
-    test_df = data[data['user'].isin(test_user_ids)]
-    
+    # Generate the index dictionary
+    data_index_dict = {
+        partition: {
+            user_id: {
+                session: [
+                    int(val)
+                    for val in data[(data['user'] == user_id)&(data['session'] == session)].index
+                    ]
+                for session in data[data['user'] == user_id]['session'].unique().tolist()
+            }
+            for user_id in user_ids
+        }
+        for partition, user_ids in zip(['train', 'validation', 'test'], [train_user_ids, val_user_ids, test_user_ids])
+    }
+    # Generate the index pairs dataframes
+    train_index_pairs_df = generate_pairs_from_rg_partition('train', data_index_dict)
+    val_index_pairs_df = generate_pairs_from_rg_partition('validation', data_index_dict)
+    test_index_pairs_df = generate_pairs_from_rg_partition('test', data_index_dict)
+    # Save the dataframes
+    train_index_pairs_df.to_csv('RG_train_index_pairs.csv', index=False)
+    val_index_pairs_df.to_csv('RG_val_index_pairs.csv', index=False)
+    test_index_pairs_df.to_csv('RG_test_index_pairs.csv', index=False)
+    mix_data_according_to_pairs(train_index_pairs_df, data, output_path / 'train.csv')
+    mix_data_according_to_pairs(val_index_pairs_df, data, output_path / 'validation.csv')
+    mix_data_according_to_pairs(test_index_pairs_df, data, output_path / 'test.csv')
 
-def create_positive_and_negative_pairs(data: pd.DataFrame):
-    # Identify the users in the dataset
-    user_ids = data['user'].unique()
-    # Generate the pairs
-    pairs = []
-    for user_id1, user_id2 in tqdm(product(user_ids, repeat=2), desc='User pairs', total=len(user_ids)**2):
-        session_ids_user1 = data[data['user'] == user_id1]['session'].unique()
-        session_ids_user2 = data[data['user'] == user_id2]['session'].unique()
-        for session_user1, session_user2 in product(session_ids_user1, session_ids_user2):
-            if session_user1 == session_user2 and user_id1 == user_id2:
-                continue
-            session_data_user1 = data[(data['user'] == user_id1) & (data['session'] == session_user1)]
-            session_data_user2 = data[(data['user'] == user_id2) & (data['session'] == session_user2)]
-            pair_type = '-'
-            if user_id1 == user_id2:
-                pair_type = '+'
-            for idx_session_user_1, idx_session_user_2 in product(session_data_user1.index, session_data_user2.index):
-                pairs.append(((idx_session_user_1, idx_session_user_2), pair_type))
-    # Separate the pairs in positive and negative
-    positive_pairs = [pair[0] for pair in pairs if pair[1] == '+']
-    negative_pairs = [pair[0] for pair in pairs if pair[1] == '-']
-    # Generate the dataframes
-    positive_data = generate_df_from_pairs(positive_pairs, data, 1)
-    negative_data = generate_df_from_pairs(negative_pairs, data, 0)
-    return pd.concat([positive_data, negative_data])
 
-def generate_df_from_pairs(
-        pairs,
-        data: pd.DataFrame,
-        label: int,
-        preffixes = ['accel-x', 'accel-y', 'accel-z'],
-        additional_columns = ['user', 'session']
-    ):
-    columns = [val for val in data.columns for preffix in preffixes if val.startswith(preffix)] + additional_columns
-    # Extract the ids  
-    pair_elem_1 = [val[0] for val in pairs]
-    pair_elem_2 = [val[1] for val in pairs]
-    # Extract the data from the pairs
-    s1 = data.loc[pair_elem_1, columns].reset_index(drop=True)
-    s2 = data.loc[pair_elem_2, columns].reset_index(drop=True)
-    # Add a preffix to the columns
-    s1 = s1.rename(lambda x: f'S1-{x}', axis=1)
-    s2 = s2.rename(lambda x: f'S2-{x}', axis=1)
-    # Concatenate the data and add the label
-    result_df = pd.concat([s1, s2], axis=1)
-    result_df['label'] = label
-    return result_df
+def post_process_recodgait_dataset_concatenated_in_user_files(input_path: Path, output_path: Path):
+    # Read the input file
+    data = pd.read_csv(input_path)
+    # Preprocess the data
+    data['user'] = data['user'].apply(lambda x: int(x))
+    data['session'] = data['session'].apply(lambda x: int(x))
+    # Group by user and create a column for every unique sessions
+    data_sessions = data.groupby(['user', 'session']).size().unstack(fill_value=0)
+    data_sessions['S-count'] = data_sessions.apply(lambda row: 5 - row.value_counts().get(0, 0), axis=1)
+    # Separate the data in train, validation and test to identify the respective user ids
+    train_user_ids = data_sessions[data_sessions['S-count'].isin([3,5])].index
+    val_user_ids = data_sessions[data_sessions['S-count'] == 4].index
+    test_user_ids = data_sessions[data_sessions['S-count'] == 2].index
+    # Separate the data per users
+    train_data = data[data['user'].isin(train_user_ids)].sort_values(['user', 'session', 'window']).reset_index(drop=True)
+    val_data = data[data['user'].isin(val_user_ids)].sort_values(['user', 'session', 'window']).reset_index(drop=True)
+    test_data = data[data['user'].isin(test_user_ids)].sort_values(['user', 'session', 'window']).reset_index(drop=True)
+    # Save the dataframes
+    train_data.to_csv(output_path / 'train.csv', index=False)
+    val_data.to_csv(output_path / 'validation.csv', index=False)
+    test_data.to_csv(output_path / 'test.csv', index=False)
+
+
 
 def linearize_dataframe(df, column_prefixes, maintain):
     # Initialize a dictionary to hold the linearized columns
@@ -144,59 +215,113 @@ def linearize_dataframe(df, column_prefixes, maintain):
     return linearized_df
 
 
-def create_dataset(root_path: Path, output_path: Path):
+def create_dataset(
+        root_path: Path,
+        output_path: Path,
+        label: str = "standard activity code",
+        columns_to_maintain_in_linearize_dataframe=["user", "standard activity code"],
+        column_prefixes = ["accel-x", "accel-y", "accel-z", "gyro-x", "gyro-y", "gyro-z"]
+    ):
     train_df = pd.read_csv(root_path / "train.csv")
     val_df = pd.read_csv(root_path / "validation.csv")
     test_df = pd.read_csv(root_path / "test.csv")
 
     # Linearize the dataframes
-    column_prefixes = [
-        "accel-x",
-        "accel-y",
-        "accel-z",
-        "gyro-x",
-        "gyro-y",
-        "gyro-z",
-    ]
-    
-    train_df = linearize_dataframe(train_df, column_prefixes, ["user", "standard activity code"])
-    val_df = linearize_dataframe(val_df, column_prefixes, ["user", "standard activity code"])
-    test_df = linearize_dataframe(test_df, column_prefixes, ["user", "standard activity code"])
-    train_df["activity code"] = train_df["standard activity code"]
-    val_df["activity code"] = val_df["standard activity code"]
-    test_df["activity code"] = test_df["standard activity code"]
+    print("Linearizing train dataframe...")
+    train_df = linearize_dataframe(train_df, column_prefixes, columns_to_maintain_in_linearize_dataframe)
+    print("Linearizing validation dataframe...")
+    val_df = linearize_dataframe(val_df, column_prefixes, columns_to_maintain_in_linearize_dataframe)
+    print("Linearizing test dataframe...")
+    test_df = linearize_dataframe(test_df, column_prefixes, columns_to_maintain_in_linearize_dataframe)
+    if label:
+        train_df["activity code"] = train_df[label]
+        val_df["activity code"] = val_df[label]
+        test_df["activity code"] = test_df[label]
     
     
     output_path.mkdir(parents=True, exist_ok=True)
     
-    for split, df in [("train", train_df), ("val", val_df), ("test", test_df)]:
+    for split, df in [("train", train_df), ("validation", val_df), ("test", test_df)]:
         output_path_split = output_path / split
         output_path_split.mkdir(parents=True, exist_ok=True)
-        for user_id, user_df in df.groupby("user"):
+        for user_id, user_df in tqdm(df.groupby("user")):
             user_df.to_csv(output_path_split / f"{user_id}.csv", index=False)
         print(f"Saved {len(df)} samples to {output_path}")
     
     return train_df, val_df, test_df
 
 
+def apply_custom_function_to_every_csv_file(input_path: Path, output_path: Path, custom_function: Callable):
+    for file in input_path.glob("*.csv"):
+        df = pd.read_csv(file)
+        df = custom_function(df)
+        df.to_csv(output_path / file.name, index=False)
 
+def duplicate_accel_channels(df):
+    # preffixes = ['accel-x', 'accel-y', 'accel-z']
+    df['gyro-x'] = df['accel-x']
+    df['gyro-y'] = df['accel-y']
+    df['gyro-z'] = df['accel-z']
+    return df
 
 def __main__():
+    print('Starting the dataset post-processing...')
+
+    # For HAPT dataset
+    print('Processing the HAPT dataset...')
     # General input path
     input_path = Path('../data/transitions/unbalanced/HAPT/standartized_unbalanced.csv')
     # First post-processing: balanced classes per user - for DOWNSTREAM task
     output_path = Path('../data/transitions/processed/HAPT_daghar_like')
+    os.makedirs(output_path, exist_ok=True)
     balance_function = BalanceToMinimumClassAndUser()
     post_process_hapt_dataset(input_path, output_path, balance_function)
     # Second post-processing: unbalanced classes per user - for PRETRAIN task
-    output_path = Path('../data/transitions/processed/temporal')
-    post_process_hapt_dataset(input_path, output_path, None)
+    temporal_path = Path('../data/transitions/processed/temporal')
+    os.makedirs(temporal_path, exist_ok=True)
+    post_process_hapt_dataset(input_path, temporal_path, None)
     # Second post-processing: generating the final dataset
-    create_dataset(output_path, Path('../data/transitions/processed/HAPT_concatenated_in_user_files'))
+    create_dataset(temporal_path, Path('../data/transitions/processed/HAPT_concatenated_in_user_files'))
 
     # Removing the temporary files
-    shutil.rmtree(output_path)
+    shutil.rmtree(temporal_path)
     shutil.rmtree(Path('../data/transitions/processed/HAPT_concatenated_in_user_files/test'))
+
+    # For RECODGAIT
+    print('Processing the RecodGait dataset...')
+    # General input path
+    input_path = Path('../data/authentication/unbalanced/RecodGait_v2/standartized_unbalanced.csv')
+    # First post-processing: balanced classes per user - for DOWNSTREAM task
+    output_path = Path('../data/authentication/processed/RG_daghar_like')
+    os.makedirs(output_path, exist_ok=True)
+    post_process_recodgait_dataset_daghar_like(input_path, output_path)
+    # Second post-processing: unbalanced classes per user - for PRETRAIN task
+    temporal_path = Path('../data/authentication/processed/temporal')
+    os.makedirs(temporal_path, exist_ok=True)
+    post_process_recodgait_dataset_concatenated_in_user_files(input_path, output_path)
+    # Second post-processing: generating the final dataset
+    create_dataset(temporal_path, Path('../data/authentication/processed/RG_concatenated_in_user_files'), label=None, columns_to_maintain_in_linearize_dataframe=["user"], column_prefixes=["accel-x", "accel-y", "accel-z"])
+    # Third post-processing: generating a 6-channels copy for CPC
+    output_path = Path('../data/authentication/processed/RG_concatenated_in_user_files_accel_duplicated')
+    os.makedirs(output_path / 'train', exist_ok=True)
+    os.makedirs(output_path / 'validation', exist_ok=True)
+
+    apply_custom_function_to_every_csv_file(
+        input_path=Path('../data/authentication/processed/RG_concatenated_in_user_files/train'),
+        output_path=output_path / 'train',
+        custom_function=duplicate_accel_channels
+    )
+
+    apply_custom_function_to_every_csv_file(
+        input_path=Path('../data/authentication/processed/RG_concatenated_in_user_files/validation'),
+        output_path=output_path / 'validation',
+        custom_function=duplicate_accel_channels
+    )
+
+    # Removing the temporary files
+    shutil.rmtree(temporal_path)
+    shutil.rmtree(Path('../data/authentication/processed/RG_concatenated_in_user_files/test'))
+    
     
 if __name__ == '__main__':
     __main__()
