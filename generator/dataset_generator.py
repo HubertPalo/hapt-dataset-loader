@@ -22,6 +22,7 @@ from dataset_processor import (
     RenameColumns,
     Pipeline,
     GenerateFold,
+    Slicer
 )
 
 # Set the seed for reproducibility
@@ -659,6 +660,9 @@ pipelines: Dict[str, Dict[str, Pipeline]] = {
         ),
         "standartized_dataset": Pipeline(
             [
+                Slicer(
+                    slice_to_apply=slice(500, -500),
+                ),
                 CalcTimeDiffMean(
                     groupby_column=column_group["RecodGait_v2"],
                     column_to_diff="accel-start-time",

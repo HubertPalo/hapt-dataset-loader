@@ -830,6 +830,41 @@ class Resampler:
         return df.dropna().reset_index(drop=True)
 
 
+class Slicer:
+    """Slice the dataframe with a defined interval.
+    """
+
+    def __init__(
+        self,
+        slice_to_apply: slice
+    ):
+        """
+        Parameters
+        ----------
+        slice_to_apply : slice.
+            Slice to be applied to the dataframe.
+        """
+        self.slice = slice_to_apply
+
+    def __call__(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Slice the dataframe.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            The dataframe to be sliced.
+
+        Returns
+        -------
+        pd.DataFrame
+            The same dataframe, sliced.
+        """
+        df = df.reset_index(drop=True)
+        df = df.iloc[self.slice].reset_index(drop=True)
+        return df
+
+
 class ResamplerPoly:
     """Resample columns of the dataframe assuming that the data is at a fixed frequency.
     Uses the `scipy.signal.resample_poly` function to resample the data.
@@ -882,7 +917,7 @@ class ResamplerPoly:
         pd.DataFrame
             The dataframe with the desired columns, resampled.
         """
-        df = df.reset_index()
+        df = df.reset_index(drop=True)
         for _, grouped_df in tqdm.tqdm(
             df.groupby(self.groupby_column, group_keys=True), desc="Resampling"
         ):

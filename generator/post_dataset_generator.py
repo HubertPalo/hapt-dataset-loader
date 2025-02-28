@@ -298,7 +298,7 @@ def __main__():
     # Second post-processing: unbalanced classes per user - for PRETRAIN task
     temporal_path = Path('../data/authentication/processed/temporal')
     os.makedirs(temporal_path, exist_ok=True)
-    post_process_recodgait_dataset_concatenated_in_user_files(input_path, output_path)
+    post_process_recodgait_dataset_concatenated_in_user_files(input_path, temporal_path)
     # Second post-processing: generating the final dataset
     create_dataset(temporal_path, Path('../data/authentication/processed/RG_concatenated_in_user_files'), label=None, columns_to_maintain_in_linearize_dataframe=["user"], column_prefixes=["accel-x", "accel-y", "accel-z"])
     # Third post-processing: generating a 6-channels copy for CPC
