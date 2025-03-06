@@ -264,6 +264,10 @@ def duplicate_accel_channels(df):
     df['gyro-z'] = df['accel-z']
     return df
 
+def add_fake_activity_code_channel(df):
+    df['activity code'] = 0
+    return df
+
 def __main__():
     print('Starting the dataset post-processing...')
 
@@ -277,15 +281,15 @@ def __main__():
     balance_function = BalanceToMinimumClassAndUser()
     post_process_hapt_dataset(input_path, output_path, balance_function)
     # Second post-processing: unbalanced classes per user - for PRETRAIN task
-    temporal_path = Path('../data/transitions/processed/temporal')
-    os.makedirs(temporal_path, exist_ok=True)
-    post_process_hapt_dataset(input_path, temporal_path, None)
+    temporary_path = Path('../data/transitions/processed/temporal')
+    os.makedirs(temporary_path, exist_ok=True)
+    post_process_hapt_dataset(input_path, temporary_path, None)
     # Second post-processing: generating the final dataset
-    create_dataset(temporal_path, Path('../data/transitions/processed/HAPT_concatenated_in_user_files'))
+    create_dataset(temporary_path, Path('../data/transitions/processed/HAPT_concatenated_in_user_files'))
 
     # Removing the temporary files
-    shutil.rmtree(temporal_path)
-    shutil.rmtree(Path('../data/transitions/processed/HAPT_concatenated_in_user_files/test'))
+    shutil.rmtree(temporary_path)
+    # shutil.rmtree(Path('../data/transitions/processed/HAPT_concatenated_in_user_files/test'))
 
     # For RECODGAIT
     print('Processing the RecodGait dataset...')
@@ -296,31 +300,46 @@ def __main__():
     os.makedirs(output_path, exist_ok=True)
     post_process_recodgait_dataset_daghar_like(input_path, output_path)
     # Second post-processing: unbalanced classes per user - for PRETRAIN task
-    temporal_path = Path('../data/authentication/processed/temporal')
-    os.makedirs(temporal_path, exist_ok=True)
-    post_process_recodgait_dataset_concatenated_in_user_files(input_path, temporal_path)
+    temporary_path = Path('../data/authentication/processed/temporary')
+    os.makedirs(temporary_path, exist_ok=True)
+    post_process_recodgait_dataset_concatenated_in_user_files(input_path, temporary_path)
     # Second post-processing: generating the final dataset
-    create_dataset(temporal_path, Path('../data/authentication/processed/RG_concatenated_in_user_files'), label=None, columns_to_maintain_in_linearize_dataframe=["user"], column_prefixes=["accel-x", "accel-y", "accel-z"])
+    create_dataset(temporary_path, Path('../data/authentication/processed/RG_concatenated_in_user_files'), label=None, columns_to_maintain_in_linearize_dataframe=["user"], column_prefixes=["accel-x", "accel-y", "accel-z"])
     # Third post-processing: generating a 6-channels copy for CPC
     output_path = Path('../data/authentication/processed/RG_concatenated_in_user_files_accel_duplicated')
-    os.makedirs(output_path / 'train', exist_ok=True)
-    os.makedirs(output_path / 'validation', exist_ok=True)
 
-    apply_custom_function_to_every_csv_file(
-        input_path=Path('../data/authentication/processed/RG_concatenated_in_user_files/train'),
-        output_path=output_path / 'train',
-        custom_function=duplicate_accel_channels
-    )
+    for partition in ['train', 'validation', 'test']:
+        os.makedirs(output_path / 'temporary' / partition, exist_ok=True)
+        apply_custom_function_to_every_csv_file(
+            input_path=Path('../data/authentication/processed/RG_concatenated_in_user_files') / partition,
+            output_path=output_path / 'temporary',
+            custom_function=add_fake_activity_code_channel
+        )
+        apply_custom_function_to_every_csv_file(
+            input_path=output_path / 'temporary' / partition,
+            output_path=output_path / partition,
+            custom_function=duplicate_accel_channels
+        )
+        # Removing the temporary folder
+        shutil.rmtree(output_path / 'temporary')
+    # os.makedirs(output_path / 'train', exist_ok=True)
+    # os.makedirs(output_path / 'validation', exist_ok=True)
 
-    apply_custom_function_to_every_csv_file(
-        input_path=Path('../data/authentication/processed/RG_concatenated_in_user_files/validation'),
-        output_path=output_path / 'validation',
-        custom_function=duplicate_accel_channels
-    )
+    # apply_custom_function_to_every_csv_file(
+    #     input_path=Path('../data/authentication/processed/RG_concatenated_in_user_files/train'),
+    #     output_path=output_path / 'train',
+    #     custom_function=duplicate_accel_channels
+    # )
+
+    # apply_custom_function_to_every_csv_file(
+    #     input_path=Path('../data/authentication/processed/RG_concatenated_in_user_files/validation'),
+    #     output_path=output_path / 'validation',
+    #     custom_function=duplicate_accel_channels
+    # )
 
     # Removing the temporary files
-    shutil.rmtree(temporal_path)
-    shutil.rmtree(Path('../data/authentication/processed/RG_concatenated_in_user_files/test'))
+    shutil.rmtree(temporary_path)
+    # shutil.rmtree(Path('../data/authentication/processed/RG_concatenated_in_user_files/test'))
     
     
 if __name__ == '__main__':
