@@ -32,7 +32,10 @@ def post_process_hapt_dataset(
     balanced_train_data_per_user_and_class = pd.concat(balanced_data_per_user_and_class)
 
     grouped_train_data = balanced_train_data_per_user_and_class.groupby(['user', 'standard activity code']).count()[['activity code']]
-    users_in_val_ids = grouped_train_data.pivot_table(index='user', columns='standard activity code', values='activity code', fill_value=0).sort_values(9)[-3:].index
+    grouped_train_data = grouped_train_data.pivot_table(index='user', columns='standard activity code', values='activity code', fill_value=0)
+    # print(grouped_train_data[9].sum(), grouped_train_data[grouped_train_data[9] >= 12.0].shape[0])
+    # users_in_val_ids = grouped_train_data.sort_values(9)[-3:].index
+    users_in_val_ids = grouped_train_data[grouped_train_data[9] >= 12.0].index
     
     balanced_data_per_user_and_class = []
     for user_id in users_in_test_ids:
@@ -252,6 +255,7 @@ def create_dataset(
 
 
 def apply_custom_function_to_every_csv_file(input_path: Path, output_path: Path, custom_function: Callable):
+    print(f"Applying custom function to every file in {input_path} and saving the results in {output_path}")
     for file in input_path.glob("*.csv"):
         df = pd.read_csv(file)
         df = custom_function(df)
@@ -310,17 +314,19 @@ def __main__():
 
     for partition in ['train', 'validation', 'test']:
         os.makedirs(output_path / 'temporary' / partition, exist_ok=True)
+        os.makedirs(output_path / partition, exist_ok=True)
         apply_custom_function_to_every_csv_file(
             input_path=Path('../data/authentication/processed/RG_concatenated_in_user_files') / partition,
             output_path=output_path / 'temporary',
             custom_function=add_fake_activity_code_channel
         )
         apply_custom_function_to_every_csv_file(
-            input_path=output_path / 'temporary' / partition,
+            input_path=output_path / 'temporary',
             output_path=output_path / partition,
             custom_function=duplicate_accel_channels
         )
         # Removing the temporary folder
+        print(f'Removing the temporary folder...')
         shutil.rmtree(output_path / 'temporary')
     # os.makedirs(output_path / 'train', exist_ok=True)
     # os.makedirs(output_path / 'validation', exist_ok=True)
