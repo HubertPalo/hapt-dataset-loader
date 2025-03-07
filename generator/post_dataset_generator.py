@@ -244,7 +244,7 @@ def create_dataset(
     
     output_path.mkdir(parents=True, exist_ok=True)
     
-    for split, df in [("train", train_df), ("validation", val_df), ("test", test_df)]:
+    for split, df in [("train", train_df), ("val", val_df), ("test", test_df)]:
         output_path_split = output_path / split
         output_path_split.mkdir(parents=True, exist_ok=True)
         for user_id, user_df in tqdm(df.groupby("user")):
@@ -312,7 +312,7 @@ def __main__():
     # Third post-processing: generating a 6-channels copy for CPC
     output_path = Path('../data/authentication/processed/RG_concatenated_in_user_files_accel_duplicated')
 
-    for partition in ['train', 'validation', 'test']:
+    for partition in ['train', 'val', 'test']:
         os.makedirs(output_path / 'temporary' / partition, exist_ok=True)
         os.makedirs(output_path / partition, exist_ok=True)
         apply_custom_function_to_every_csv_file(
